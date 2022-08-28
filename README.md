@@ -10,3 +10,9 @@
 - Frontend written in [NuxtJS](https://nuxtjs.org/)
 
 - Database with [PostgreSQL](https://www.postgresql.org/) and [pgAdmin](https://www.pgadmin.org/)
+
+Contributors:
+  Amélie Foulquier: https://github.com/Dalsou
+  Thomas Pierre: https://github.com/t-pierre
+  Pierre Rebeca: https://github.com/prebeca
+  Alexandre Vogt: https://github.com/alas42
