@@ -1,0 +1,1563 @@
+<template>
+  <div
+    style="height: 80vh; max-height: 100%"
+    class="d-flex justify-center align-center"
+  >
+    <v-container fluid>
+      <v-row align="center" justify="center">
+        <!-- CHANNEL LIST CARD -->
+        <v-card
+          width="30%"
+          height="80%"
+          color="secondary"
+          class="d-flex flex-column justify-center pb-5"
+        >
+          <!-- CHANNELS / DM TABS -->
+          <v-toolbar color="primary" height="16px">
+            <template v-slot:extension>
+              <v-tabs v-model="tabs" centered color="info">
+                <v-tab v-for="n in 2" :key="n" class="font-weight-bold">
+                  {{ tab[n - 1] }}
+                </v-tab>
+              </v-tabs>
+            </template>
+          </v-toolbar>
+
+          <v-tabs-items v-model="tabs">
+            <v-tab-item>
+              <div class="d-flex flex-column align-center">
+                <v-dialog
+                  v-model="addChannelDialog"
+                  persistent
+                  max-width="600px"
+                >
+                  <template v-slot:activator="{ on }">
+                    <!-- ADD CHANNEL BUTTON -->
+                    <v-btn
+                      width="190px"
+                      color="primary"
+                      class="mt-5"
+                      @click="addChannelDialog = !addChannelDialog"
+                      v-on="on"
+                    >
+                      ADD CHANNEL
+                    </v-btn>
+                  </template>
+
+                  <!-- DIALOG CARD TO ADD CHANNEL -->
+                  <v-card>
+                    <v-card-title class="d-flex justify-center secondary">
+                      <h3 class="font-weight-black info--text">
+                        CREATE YOUR CHANNEL
+                      </h3>
+                    </v-card-title>
+                    <v-card-text>
+                      <v-container>
+                        <v-row>
+                          <v-col cols="12">
+                            <v-form
+                              @submit.prevent=""
+                              ref="form"
+                              v-model="valid"
+                            >
+                              <v-text-field
+                                v-model="name"
+                                :rules="[rules.required]"
+                                label="Name"
+                              >
+                              </v-text-field>
+                            </v-form>
+                          </v-col>
+                          <v-col cols="12" class="mt-5">
+                            <v-overflow-btn
+                              v-model="scope"
+                              filled
+                              :items="channelChoice"
+                              item-value="text"
+                            >
+                            </v-overflow-btn>
+                          </v-col>
+                          <v-col v-if="scope === 'protected'" cols="12">
+                            <v-form @submit.prevent="">
+                              <v-text-field
+                                v-model="password"
+                                label="Password"
+                                type="password"
+                              >
+                              </v-text-field>
+                            </v-form>
+                          </v-col>
+                        </v-row>
+                      </v-container>
+                    </v-card-text>
+                    <v-card-actions>
+                      <v-spacer></v-spacer>
+                      <v-btn
+                        color="accent"
+                        depressed
+                        dark
+                        @click="addChannelDialog = false"
+                      >
+                        Cancel
+                      </v-btn>
+                      <v-btn
+                        color="success white--text"
+                        :disabled="!valid"
+                        depressed
+                        @click="createChannel"
+                      >
+                        Create
+                      </v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </v-dialog>
+                <!-- END OF DIALOG CARD TO ADD CHANNEL -->
+
+                <!-- DIALOG CARD TO JOIN CHANNEL -->
+                <v-dialog
+                  v-model="joinChannelDialog"
+                  persistent
+                  max-width="600px"
+                >
+                  <template v-slot:activator="{ on }">
+                    <!-- JOIN CHANNEL BUTTON -->
+                    <v-btn
+                      color="primary"
+                      width="190px"
+                      class="my-5"
+                      @click="
+                        fetchAllChannels();
+                        joinChannelDialog = !joinChannelDialog;
+                      "
+                      v-on="on"
+                    >
+                      JOIN CHANNEL
+                    </v-btn>
+                  </template>
+
+                  <v-card>
+                    <v-card-title class="d-flex justify-center secondary">
+                      <h3 class="font-weight-black info--text">
+                        JOIN A CHANNEL
+                      </h3>
+                    </v-card-title>
+                    <v-card-text>
+                      <v-container>
+                        <v-row>
+                          <v-col class="mt-5" cols="12">
+                            <!-- besoin de rajouter où chercher channel / changer :items="channels" -->
+                            <v-overflow-btn
+                              v-model="choice"
+                              filled
+                              :items="allChannels"
+                              item-text="name"
+                              item-value="id"
+                            >
+                            </v-overflow-btn>
+                          </v-col>
+                          <v-col cols="12">
+                            <v-form @submit.prevent="">
+                              <v-text-field
+                                v-model="password"
+                                :rules="[rules.required]"
+                                label="Password"
+                                type="password"
+                                hint="If the channel is protected, enter password here !"
+                                persistent-hint
+                              >
+                              </v-text-field>
+                            </v-form>
+                          </v-col>
+                        </v-row>
+                      </v-container>
+                    </v-card-text>
+                    <v-card-actions>
+                      <v-spacer></v-spacer>
+                      <v-btn
+                        color="accent"
+                        depressed
+                        dark
+                        @click="joinChannelDialog = false"
+                      >
+                        Cancel
+                      </v-btn>
+                      <!-- removed :disabled="!valid" from v-btn for now-->
+                      <v-dialog
+                        v-model="passwordDialog"
+                        persistent
+                        max-width="290"
+                      >
+                        <template v-slot:activator="{ on }">
+                          <v-btn
+                            color="success white--text"
+                            depressed
+                            @click="joinChannel"
+                            v-on="on"
+                          >
+                            Join
+                          </v-btn>
+                        </template>
+                        <v-card color="secondary">
+                          <v-card-text class="text-h6 pt-5"
+                            >Please select a channel</v-card-text
+                          >
+                          <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn
+                              color="primary"
+                              @click="passwordDialog = false"
+                            >
+                              OK
+                            </v-btn>
+                          </v-card-actions>
+                        </v-card>
+                      </v-dialog>
+                    </v-card-actions>
+                  </v-card>
+                </v-dialog>
+                <!-- END OF DIALOG CARD TO join CHANNEL -->
+              </div>
+
+              <v-divider></v-divider>
+              <!-- CHANNEL LIST -->
+              <v-list height="502px" color="secondary" mandatory>
+                <div v-for="(channel, index) in channels" :key="channel.id">
+                  <v-list-group
+                    @click="
+                      currentChannel = channel;
+                      messages = currentChannel.messages;
+                      scrollToNewMsg();
+                    "
+                  >
+                    <template v-slot:activator>
+                      <v-list-item two-line>
+                        <v-list-item-content>
+                          <v-list-item-title class="font-weight-bold">
+                            {{ channel.name }}
+                          </v-list-item-title>
+                        </v-list-item-content>
+                      </v-list-item>
+                      <v-divider
+                        v-if="index < channels.length - 1"
+                        :key="index"
+                      ></v-divider>
+                    </template>
+                    <v-list color="secondary" width="100%">
+                      <div
+                        v-for="(player, index) in channel.users"
+                        :key="player.id"
+                      >
+                        <v-list-group
+                          v-if="user.id != player.id"
+                          active-class="info--text"
+                          sub-group
+                        >
+                          <template v-slot:activator>
+                            <v-list-item-content>
+                              <tr>
+                                <td>
+                                  <UserAvatarStatus
+                                    :user="player"
+                                    size="50px"
+                                    offset="20"
+                                  />
+                                </td>
+                                <td>
+                                  <v-list-item-title class="font-weight-bold">
+                                    {{ player.username }}
+                                  </v-list-item-title>
+                                </td>
+                              </tr>
+                            </v-list-item-content>
+                          </template>
+                          <div>
+                            <v-list-item dense>
+                              <v-list-item-title
+                                class="d-flex justify-center text-button"
+                              >
+                                <v-btn
+                                  :to="'/profile/' + player.id"
+                                  color="primary"
+                                  class="mx-1"
+                                  min-width="100%"
+                                >
+                                  PROFILE</v-btn
+                                >
+                              </v-list-item-title>
+                            </v-list-item>
+                            <div v-if="!isBlocked(player)">
+                              <v-list-item dense>
+                                <v-list-item-title
+                                  class="d-flex justify-center text-button"
+                                >
+                                  <v-btn
+                                    @click="blockUser(player)"
+                                    color="accent"
+                                    min-width="100%"
+                                  >
+                                    BLOCK</v-btn
+                                  >
+                                </v-list-item-title>
+                              </v-list-item>
+                            </div>
+                            <div v-else>
+                              <v-list-item dense>
+                                <v-list-item-title
+                                  class="d-flex justify-center text-button"
+                                >
+                                  <v-btn
+                                    @click="unblockUser(player)"
+                                    color="success"
+                                    min-width="100%"
+                                  >
+                                    UNBLOCK</v-btn
+                                  >
+                                </v-list-item-title>
+                              </v-list-item>
+                            </div>
+                            <div v-if="isAdmin(channel) === true">
+                              <v-list-item dense>
+                                <v-list-item-title
+                                  class="d-flex justify-center text-button"
+                                >
+                                  <v-dialog
+                                    v-model="muteDialog"
+                                    persistent
+                                    :retain-focus="false"
+                                    max-width="600px"
+                                  >
+                                    <template v-slot:activator="{ on }">
+                                      <v-btn
+                                        @click="
+                                          banMute_chan = channel;
+                                          banMute_player = player;
+                                          muteDialog = true;
+                                        "
+                                        color="accent"
+                                        class="mx-1"
+                                        min-width="48%"
+                                        v-on="on"
+                                      >
+                                        MUTE</v-btn
+                                      >
+                                    </template>
+                                    <v-card color="secondary">
+                                      <v-card-text class="text-h6 pt-5"
+                                        >How many minutes do you want to mute
+                                        this user ?
+                                      </v-card-text>
+                                      <v-slider
+                                        v-model="muteMinutes"
+                                        thumb-label="always"
+                                        thumb-size="40"
+                                        max="60"
+                                        min="1"
+                                        class="mt-10 mx-10"
+                                      >
+                                        <template v-slot:thumb-label>
+                                          <span
+                                            class="font-weight-bold"
+                                            style="font-size: 15px"
+                                          >
+                                            {{ muteMinutes }}
+                                          </span>
+                                        </template>
+                                      </v-slider>
+                                      <v-card-actions>
+                                        <v-spacer></v-spacer>
+                                        <v-btn
+                                          color="accent"
+                                          @click="muteDialog = false"
+                                        >
+                                          CANCEL
+                                        </v-btn>
+                                        <v-btn
+                                          color="success"
+                                          @click="
+                                            mute();
+                                            muteDialog = false;
+                                          "
+                                        >
+                                          OK
+                                        </v-btn>
+                                      </v-card-actions>
+                                    </v-card>
+                                  </v-dialog>
+                                  <v-btn
+                                    @click="kick(player, channel)"
+                                    color="accent"
+                                    class="mx-1"
+                                    min-width="48%"
+                                  >
+                                    KICK
+                                  </v-btn>
+                                </v-list-item-title>
+                              </v-list-item>
+                              <v-list-item dense>
+                                <v-list-item-title
+                                  class="d-flex justify-center text-button"
+                                >
+                                  <v-dialog
+                                    v-model="banDialog"
+                                    persistent
+                                    :retain-focus="false"
+                                    max-width="600px"
+                                  >
+                                    <template v-slot:activator="{ on }">
+                                      <v-btn
+                                        @click="
+                                          banMute_chan = channel;
+                                          banMute_player = player;
+                                          banDialog = !banDialog;
+                                        "
+                                        color="accent"
+                                        min-width="100%"
+                                        v-on="on"
+                                      >
+                                        BAN</v-btn
+                                      >
+                                    </template>
+                                    <v-card color="secondary">
+                                      <v-card-text class="text-h6 pt-5"
+                                        >How many minutes do you want to ban
+                                        this user ?
+                                      </v-card-text>
+                                      <v-slider
+                                        v-model="banMinutes"
+                                        thumb-label="always"
+                                        thumb-size="40"
+                                        max="9999"
+                                        min="1"
+                                        class="mt-10 mx-10"
+                                      >
+                                        <template v-slot:thumb-label>
+                                          <span
+                                            class="font-weight-bold"
+                                            style="font-size: 15px"
+                                          >
+                                            {{ banMinutes }}
+                                          </span>
+                                        </template>
+                                      </v-slider>
+                                      <v-card-actions>
+                                        <v-spacer></v-spacer>
+                                        <v-btn
+                                          color="accent"
+                                          @click="banDialog = !banDialog"
+                                        >
+                                          CANCEL
+                                        </v-btn>
+                                        <v-btn
+                                          color="success"
+                                          @click="
+                                            ban();
+                                            banDialog = !banDialog;
+                                          "
+                                        >
+                                          OK
+                                        </v-btn>
+                                      </v-card-actions>
+                                    </v-card>
+                                  </v-dialog>
+                                </v-list-item-title>
+                              </v-list-item>
+                              <div v-if="isOwner(channel) === true">
+                                <v-list-item dense class="mb-2">
+                                  <v-list-item-title
+                                    class="d-flex justify-center text-button"
+                                  >
+                                    <v-btn
+                                      @click="setAdmin(player, channel)"
+                                      color="success"
+                                      min-width="100%"
+                                    >
+                                      ADMIN
+                                    </v-btn>
+                                  </v-list-item-title>
+                                </v-list-item>
+                              </div>
+                            </div>
+                          </div>
+                        </v-list-group>
+                        <v-divider
+                          v-if="index < users.length - 1"
+                          :key="index"
+                        ></v-divider>
+                      </div>
+                    </v-list>
+                  </v-list-group>
+                </div>
+              </v-list>
+            </v-tab-item>
+
+            <!-- DM LIST  -->
+
+            <v-tab-item>
+              <div class="d-flex flex-column align-center">
+                <!-- DIALOG CARD TO ADD DM CHANNEL -->
+                <v-dialog v-model="addDMDialog" persistent max-width="600px">
+                  <template v-slot:activator="{ on }">
+                    <!-- ADD DM CHANNEL BUTTON -->
+                    <v-btn
+                      v-on="on"
+                      color="primary"
+                      width="190px"
+                      class="my-5"
+                      @click="
+                        fetchFiends();
+                        addDMDialog = true;
+                      "
+                    >
+                      NEW DIRECT MESSAGE
+                    </v-btn>
+                  </template>
+
+                  <v-card>
+                    <v-card-title class="d-flex justify-center secondary">
+                      <h3 class="font-weight-black info--text">
+                        SELECT A USER
+                      </h3>
+                    </v-card-title>
+                    <v-card-text>
+                      <v-container>
+                        <v-row>
+                          <v-col class="mt-5" cols="12">
+                            <v-overflow-btn
+                              v-model="choice"
+                              filled
+                              :items="user.friends"
+                              item-text="username"
+                              item-value="id"
+                            >
+                            </v-overflow-btn>
+                          </v-col>
+                        </v-row>
+                      </v-container>
+                    </v-card-text>
+                    <v-card-actions>
+                      <v-spacer></v-spacer>
+                      <v-btn
+                        color="accent"
+                        depressed
+                        dark
+                        @click="addDMDialog = false"
+                      >
+                        Cancel
+                      </v-btn>
+                      <v-btn
+                        color="success white--text"
+                        depressed
+                        @click="
+                          createDMChannel();
+                          addDMDialog = false;
+                        "
+                      >
+                        Add
+                      </v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </v-dialog>
+                <!-- END OF DIALOG CARD TO ADD DM -->
+              </div>
+
+              <v-divider></v-divider>
+              <v-list height="557px" color="secondary" mandatory>
+                <v-list-group
+                  v-for="(channel, index) in channels_dm"
+                  :key="index"
+                >
+                  <template v-slot:activator>
+                    <v-list-item-content
+                      @click="
+                        currentChannel = channel;
+                        messages = currentChannel.messages;
+                        scrollToNewMsg();
+                      "
+                    >
+                      <tr>
+                        <td>
+                          <UserAvatarStatus
+                            size="50px"
+                            :user="getDMUser(channel)"
+                            :offset="20"
+                          />
+                        </td>
+                        <td>
+                          <v-list-item-title class="font-weight-bold">
+                            {{ getDMUserName(channel) }}
+                          </v-list-item-title>
+                        </td>
+                      </tr>
+                    </v-list-item-content>
+                  </template>
+
+                  <v-list-item dense>
+                    <v-list-item-title
+                      class="d-flex justify-center text-button"
+                    >
+                      <v-btn
+                        :to="getUserProfile(channel)"
+                        color="primary"
+                        class="mx-1"
+                        min-width="100%"
+                      >
+                        PROFILE
+                      </v-btn>
+                    </v-list-item-title>
+                  </v-list-item>
+                  <v-list-item dense>
+                    <v-list-item-title
+                      class="d-flex justify-center text-button"
+                    >
+                      <v-btn
+                        @click="challenge(getDMUser(channel))"
+                        color="primary"
+                        min-width="100%"
+                      >
+                        INVITE TO GAME</v-btn
+                      >
+                    </v-list-item-title>
+                  </v-list-item>
+                  <div v-if="!isBlocked(getDMUser(channel))">
+                    <v-list-item dense>
+                      <v-list-item-title
+                        class="d-flex justify-center text-button"
+                      >
+                        <v-btn
+                          @click="blockUser(getDMUser(channel))"
+                          color="accent"
+                          min-width="100%"
+                        >
+                          BLOCK</v-btn
+                        >
+                      </v-list-item-title>
+                    </v-list-item>
+                  </div>
+                  <div v-else>
+                    <v-list-item dense>
+                      <v-list-item-title
+                        class="d-flex justify-center text-button"
+                      >
+                        <v-btn
+                          @click="unblockUser(getDMUser(channel))"
+                          color="success"
+                          min-width="100%"
+                        >
+                          UNBLOCK</v-btn
+                        >
+                      </v-list-item-title>
+                    </v-list-item>
+                  </div>
+                  <v-divider
+                    v-if="index < users.length - 1"
+                    :key="index"
+                  ></v-divider>
+                </v-list-group>
+              </v-list>
+            </v-tab-item>
+          </v-tabs-items>
+        </v-card>
+
+        <!-- END OF CHANNELS / DM LIST CARD -->
+
+        <!-- CHAT CARD -->
+        <!-- besoin de rajouter un bouton et dialog card params pour changer password (par exemple)-->
+        <v-card
+          width="60%"
+          height="80%"
+          color="secondary"
+          class="d-flex flex-column justify-center ml-2"
+        >
+          <v-toolbar color="primary">
+            <div v-if="currentChannel.scope !== 'dm'">
+              <v-toolbar-title
+                class="font-weight-black"
+                style="font-size: 20px"
+              >
+                {{ currentChannel.name }}
+              </v-toolbar-title>
+            </div>
+            <div v-else>
+              <v-toolbar-title
+                class="font-weight-black"
+                style="font-size: 20px"
+              >
+                {{ getDMUserName(currentChannel) }}
+              </v-toolbar-title>
+            </div>
+            <v-spacer></v-spacer>
+
+            <!-- TO LEAVE CHANNEL -->
+            <v-dialog v-model="channelLeaveDialog" persistent max-width="600px">
+              <template v-slot:activator="{ on }">
+                <v-icon @click="channelLeaveDialog = true" v-on="on">
+                  mdi-exit-run</v-icon
+                >
+              </template>
+
+              <v-card>
+                <v-card-title class="d-flex justify-center secondary">
+                  <h3 class="font-weight-black info--text">LEAVE CHANNEL</h3>
+                </v-card-title>
+                <v-card-text>
+                  <h3>
+                    Do you really want to leave this channel ? You will lose all
+                    previlege asociated !
+                  </h3>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    color="accent"
+                    depressed
+                    dark
+                    @click="channelLeaveDialog = false"
+                  >
+                    NO
+                  </v-btn>
+                  <v-btn
+                    color="success white--text"
+                    :disabled="!valid"
+                    depressed
+                    @click="
+                      leaveChannel(currentChannel);
+                      channelLeaveDialog = false;
+                    "
+                  >
+                    YES
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+            <!-- TO DELETE CHANNEL -->
+            <div v-if="isOwner(currentChannel)">
+              <v-dialog
+                v-model="channelDeleteDialog"
+                persistent
+                max-width="600px"
+              >
+                <template v-slot:activator="{ on }">
+                  <v-icon @click="channelDeleteDialog = true" v-on="on">
+                    mdi-chat-remove</v-icon
+                  >
+                </template>
+
+                <v-card>
+                  <v-card-title class="d-flex justify-center secondary">
+                    <h3 class="font-weight-black info--text">DELETE CHANNEL</h3>
+                  </v-card-title>
+                  <v-card-text>
+                    <h3>
+                      Do you really want to delete this channel ? Everythings
+                      will be lost forever!
+                    </h3>
+                  </v-card-text>
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn
+                      color="accent"
+                      depressed
+                      dark
+                      @click="channelDeleteDialog = false"
+                    >
+                      NO
+                    </v-btn>
+                    <v-btn
+                      color="success white--text"
+                      :disabled="!valid"
+                      depressed
+                      @click="
+                        deleteChannel(currentChannel);
+                        channelDeleteDialog = false;
+                      "
+                    >
+                      YES
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-dialog>
+            </div>
+            <!-- TO CHANGE CHANNEL SETTING -->
+            <v-dialog
+              v-model="channelSettingDialog"
+              persistent
+              max-width="600px"
+            >
+              <template v-slot:activator="{ on }">
+                <v-icon
+                  @click="channelSettingDialog = !channelSettingDialog"
+                  v-on="on"
+                >
+                  mdi-cog</v-icon
+                >
+              </template>
+
+              <v-card>
+                <v-card-title class="d-flex justify-center secondary">
+                  <h3 class="font-weight-black info--text">CHANNEL SETTINGS</h3>
+                </v-card-title>
+                <v-card-text>
+                  <v-container>
+                    <v-row>
+                      <v-col
+                        class="mt-5"
+                        cols="12"
+                        v-if="currentChannel.scope === 'protected'"
+                      >
+                        <v-form @submit.prevent="">
+                          <v-text-field
+                            v-model="currentPassword"
+                            label="Current Password"
+                            type="password"
+                          >
+                          </v-text-field>
+                        </v-form>
+                        <v-form @submit.prevent="">
+                          <v-text-field
+                            v-model="changePassword"
+                            label="New Password"
+                            type="password"
+                          >
+                          </v-text-field>
+                        </v-form>
+                      </v-col>
+                      <v-col
+                        v-if="currentChannel.scope === 'private'"
+                        class="mt-5"
+                        cols="12"
+                      >
+                        <v-select
+                          :items="users"
+                          name="user"
+                          v-model="invited_user"
+                          return-object
+                          filled
+                          item-text="username"
+                          label="Select"
+                          item-value="id"
+                          hint="Send an invitation to a player"
+                          persistent-hint
+                        >
+                        </v-select>
+                      </v-col>
+                    </v-row>
+                  </v-container>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    color="accent"
+                    depressed
+                    dark
+                    @click="channelSettingDialog = false"
+                  >
+                    Cancel
+                  </v-btn>
+                  <v-btn
+                    color="success white--text"
+                    :disabled="!valid"
+                    depressed
+                    @click="options"
+                  >
+                    SAVE
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+            <!-- END TO CHANGE CHANNEL PASSWORD -->
+          </v-toolbar>
+
+          <!-- MESSAGES -->
+          <v-list height="577px" width="100%" class="mt-3 d-flex flex-column">
+            <v-list-item-group id="Chat">
+              <div v-for="(msg, index) in messages" :key="index">
+                <tr class="d-flex justify-space-between">
+                  <td>
+                    <v-list-item two-line disabled>
+                      <v-list-item-content>
+                        <v-list-item-title
+                          class="font-weight-bold purple--text"
+                        >
+                          {{ msg.user.username }}
+                        </v-list-item-title>
+                        <v-list-item-content
+                          v-if="
+                            msg.challenge === undefined ||
+                            msg.challenge === null
+                          "
+                        >
+                          {{ msg.content }}
+                        </v-list-item-content>
+                      </v-list-item-content>
+                    </v-list-item>
+                    <div
+                      v-if="
+                        msg.challenge != undefined && msg.challenge === true
+                      "
+                    >
+                      <v-btn @click="toChallenge(msg.content)"
+                        >Click to join</v-btn
+                      >
+                    </div>
+                  </td>
+                  <td
+                    v-if="
+                      user.id === msg.user.id ||
+                      (currentChannel.name != undefined &&
+                        isAdmin(currentChannel))
+                    "
+                  >
+                    <v-icon x-small class="mr-1" @click="deleteMessage(msg)"
+                      >mdi-close-thick</v-icon
+                    >
+                  </td>
+                </tr>
+                <!-- <v-divider v-if="index < currentChannel.messages.length - 1" :key="index"></v-divider> -->
+              </div>
+            </v-list-item-group>
+          </v-list>
+
+          <v-spacer></v-spacer>
+
+          <!-- TO ENTER THE MESSAGE -->
+          <v-card-actions>
+            <v-sheet
+              color="grey"
+              height="50"
+              dark
+              width="100%"
+              class="text-center"
+            >
+              <v-app-bar bottom color="rgba(0,0,0,0)" flat>
+                <v-text-field
+                  class="mt-5"
+                  v-model="input"
+                  @click:append-outer="sendMessage"
+                  @keyup.enter="sendMessage"
+                  append-outer-icon="mdi-send"
+                  label="Message"
+                  type="text"
+                >
+                </v-text-field>
+              </v-app-bar>
+            </v-sheet>
+          </v-card-actions>
+        </v-card>
+        <!-- END OF CHAT CARD -->
+      </v-row>
+    </v-container>
+  </div>
+</template>
+
+<script lang="ts">
+import { NuxtSocket } from "nuxt-socket-io";
+import Vue from "vue";
+import AvatarStatusVue from "~/components/User/AvatarStatus.vue";
+
+interface Message {
+  id: number;
+  channel: Channel;
+  user: User;
+  content: string;
+  challenge: boolean;
+}
+
+interface Channel {
+  id: number;
+  name: string;
+  username: string;
+  scope: string;
+  users: User[];
+  owner: User;
+  messages: Message[];
+  admins: User[];
+  banned: any[];
+  muted: any[];
+}
+
+interface User {
+  id: number;
+  username: string;
+  avatar: string;
+  friends: User[];
+  blocked: User[];
+}
+
+export default Vue.extend({
+  data() {
+    return {
+      banMute_chan: {} as Channel,
+      banMute_player: {} as User,
+      invited_user: {} as User,
+      messages: [] as Message[],
+      allChannels: [] as Channel[],
+      channels: [] as Channel[],
+      channels_dm: [] as Channel[],
+      users: [] as User[],
+      tabs: null,
+      tab: ["Channels", "DM"],
+      addChannelDialog: false,
+      addDMDialog: false,
+      joinChannelDialog: false,
+      channelSettingDialog: false,
+      channelLeaveDialog: false,
+      channelDeleteDialog: false,
+      passwordDialog: false,
+      valid: true,
+      disconnected: false,
+      channelChoice: [
+        { text: "public" },
+        { text: "private" },
+        { text: "protected" },
+      ],
+      choice: "" as string,
+      choice_user: {} as User,
+      currentChannel: {} as Channel,
+      name: "",
+      scope: "public",
+      password: "",
+      channelPassword: "",
+      currentPassword: "",
+      changePassword: "",
+      input: "",
+      muteDialog: false,
+      muteMinutes: 10 as number,
+      banDialog: false,
+      banMinutes: 10 as number,
+
+      rules: {
+        required: (v: string) => !!v || "Required",
+        name_length: (v: string) =>
+          (v && v.length <= 8) || "must be less than 8 characters",
+        pwd_length: (v: string) =>
+          v.length <= 16 || "must be less than 16 characters",
+      },
+    };
+  },
+  props: {
+    user: {
+      type: Object,
+      required: true,
+    },
+    socket: {
+      type: Object,
+      required: true,
+    },
+  },
+  async created() {
+    await this.$axios
+      .get("/users")
+      .then((res:any) => {
+        this.users = res.data;
+      })
+      .catch((error:any) => {
+        console.error(error);
+      });
+
+    await this.$axios
+      .get("/users/channels")
+      .then(async (res:any) => {
+        this.channels = res.data;
+        this.channels.forEach((e) => {
+          e.messages.sort((a, b) => {
+            return a.id - b.id;
+          });
+        });
+        this.channels_dm = this.channels.filter((e) => {
+          return e.scope == "dm";
+        });
+        this.channels = this.channels.filter((e) => {
+          return e.scope != "dm";
+        });
+      })
+      .catch((error:any) => {
+        console.error(error);
+      });
+
+    this.socket.on("connect", async () => {
+      await this.socket.emit("SetSocket");
+      if (!this.disconnected) return;
+      await this.joinChannels();
+      this.disconnected = false;
+    });
+
+    this.socket.on("disconnect", async () => {
+      this.disconnected = true;
+    });
+
+    this.socket.on("UserKick", async (msg: any) => {
+      let index = this.channels.findIndex((e) => {
+        return e.id == msg.channel_id;
+      });
+      if (index == -1) return;
+      this.channels.splice(index, 1);
+      if (this.currentChannel.id == msg.channel_id) {
+        this.currentChannel = {} as Channel;
+        this.messages = [];
+      }
+    });
+
+    this.socket.on("Kick", async (data: any) => {
+      let chan = this.channels.find((e) => {
+        return e.id == data.channel_id;
+      });
+      if (chan == undefined) return;
+      let i = chan.users.findIndex((e) => {
+        return e.id == data.user_id;
+      });
+      if (i == -1) return;
+      chan.users.splice(i, 1);
+    });
+
+    this.socket.on("JoinChan", async (channel: Channel) => {
+      if (channel != undefined && channel != null)
+        channel.messages.sort((a, b) => {
+          return a.id - b.id;
+        });
+      if (
+        channel.scope == "dm" &&
+        this.channels_dm.find((e) => {
+          return e.id == channel.id;
+        }) == undefined
+      ) {
+        this.channels_dm.push(channel);
+      }
+      if (
+        channel.scope != "dm" &&
+        this.channels.find((e) => {
+          return e.id == channel.id;
+        }) == undefined
+      ) {
+        this.channels.push(channel);
+      }
+    });
+
+    this.socket.on("ChannelDeleted", (channel_id: number) => {
+      let i = this.channels.findIndex((e) => {
+        return e.id == channel_id;
+      });
+      if (i == -1) return;
+      this.channels.splice(i, 1);
+      if (this.currentChannel.id == channel_id) {
+        this.currentChannel = {} as Channel;
+        this.messages = [];
+      }
+    });
+
+    this.socket.on("NewMessage", async (msg: Message) => {
+      if (msg != null) {
+        if (msg.channel.scope != "dm")
+          this.channels
+            .find((e) => {
+              return e.id == msg.channel.id;
+            })
+            ?.messages.push(msg);
+        else
+          this.channels_dm
+            .find((e) => {
+              return e.id == msg.channel.id;
+            })
+            ?.messages.push(msg);
+      }
+      if (this.currentChannel.id == msg.channel.id) {
+        this.scrollToNewMsg();
+      }
+    });
+
+    this.socket.on("PrivateMessage", async (msg: Message) => {
+      if (
+        this.channels_dm.find((e) => {
+          return e.id == msg.channel.id;
+        }) != undefined
+      )
+        return;
+      this.socket.emit("JoinChan", {
+        channel_id: msg.channel.id,
+        password: "",
+      });
+    });
+
+    this.socket.on("NewUser", async (data: any) => {
+      if (data != null) {
+        let chan = this.channels.find((e) => {
+          return e.id == data.channel_id;
+        });
+        if (
+          chan &&
+          chan.users.find((e) => {
+            return e.id == data.user.id;
+          }) == undefined
+        )
+          chan.users.push(data.user);
+      }
+    });
+
+    this.socket.on("UserLeft", async (data: any) => {
+      if (data != null) {
+        let chan = this.channels.find((e) => {
+          return e.id == data.channel_id;
+        });
+        let index: number;
+        if (
+          chan &&
+          (index = chan.users.findIndex((e) => {
+            return e.id == data.user_id;
+          })) != -1
+        )
+          chan.users.splice(index, 1);
+      }
+    });
+
+    this.socket.on("LeaveChan", async (data: any) => {
+      if (data == null) return;
+      let index = this.channels.findIndex((e) => {
+        return e.id == data.channel_id;
+      });
+      if (index != -1) {
+        this.channels.splice(index, 1);
+      }
+      if (this.currentChannel.id == data.channel_id) {
+        this.currentChannel = {} as Channel;
+        this.messages = [];
+      }
+    });
+
+    this.socket.on("Promoted", async (data: any) => {
+      if (data == null) return;
+      let channel = this.channels.find((e) => {
+        return e.id == data.channel_id;
+      });
+      if (channel === undefined) return;
+      await this.$axios
+        .get("/channels/" + channel.id + "/admins")
+        .then((res:any) => {
+          (channel as Channel).admins = res.data;
+        })
+        .catch((error:any) => {
+          console.error(error);
+        });
+    });
+
+    this.socket.on("DeleteMessage", async (msg: Message) => {
+      if (msg != null) {
+        let chans = this.channels;
+        if (msg.channel.scope == "dm") chans = this.channels_dm;
+        let channel = chans.find((e) => {
+          return e.id == msg.channel.id;
+        }) as Channel;
+        channel.messages.splice(
+          channel.messages.findIndex((e) => {
+            return e.id == msg.id;
+          }),
+          1
+        );
+      }
+    });
+
+    await this.joinChannels();
+  },
+  destroyed() {
+    this.socket.off("NewMessage");
+    this.socket.off("ChannelDeleted");
+    this.socket.off("UserKick");
+    this.socket.off("Kick");
+    this.socket.off("DeleteMessage");
+    this.socket.off("Promoted");
+    this.socket.off("LeaveChan");
+    this.socket.off("UserLeft");
+    this.socket.off("NewUser");
+    this.socket.off("PrivateMessage");
+    this.socket.off("JoinChan");
+  },
+  methods: {
+    async blockUser(user: User) {
+      await this.$axios.post("/users/block/" + user.id);
+      let i = this.user.blocked.findIndex((e: User) => {
+        return e.id == user.id;
+      });
+      if (i == -1) this.user.blocked.push(user);
+    },
+
+    async unblockUser(user: User) {
+      await this.$axios.post("/users/unblock/" + user.id);
+      let i = this.user.blocked.findIndex((e: User) => {
+        return e.id == user.id;
+      });
+      if (i != -1) this.user.blocked.splice(i, 1);
+    },
+
+    isBlocked(user: User) {
+      return (
+        this.user.blocked.find((e: User) => {
+          return e.id == user.id;
+        }) != undefined
+      );
+    },
+
+    scrollToNewMsg() {
+      this.$nextTick(() => {
+        document.getElementById("Chat")?.lastElementChild?.scrollIntoView();
+      });
+    },
+
+    async fetchAllChannels() {
+      await this.$axios
+        .get("/channels")
+        .then((res:any) => {
+          this.allChannels = res.data;
+          this.allChannels = this.allChannels.filter((e) => {
+            return e.scope != "dm";
+          });
+        })
+        .catch((error:any) => {
+          console.error(error);
+        });
+    },
+
+    async fetchFiends() {
+      await this.$axios
+        .get("/users/friends")
+        .then((res:any) => {
+          this.user.friends = res.data;
+        })
+        .catch((error:any) => {
+          console.error(error);
+        });
+    },
+
+    async createChannel() {
+      if (this.name == "") return;
+      if (this.scope == "") return;
+      await this.$axios
+        .post("/channels/create", {
+          name: this.name,
+          scope: this.scope,
+          password: this.password,
+        })
+        .then(async (res:any) => {
+          if (typeof res.data === "string") {
+            this.socket.emit("Alert", {
+              color: "red",
+              content: "ERROR : " + res.data,
+            });
+            return;
+          }
+          await this.socket.emit("JoinChan", {
+            channel_id: res.data.id,
+            password: "",
+          });
+        })
+        .catch((error:any) => {
+          console.error(error);
+          this.socket.emit("Alert", {
+            color: "red",
+            content: "ERROR : " + error.message,
+          });
+        });
+      this.password = "";
+      this.addChannelDialog = false;
+    },
+
+    async joinChannels() {
+      for (let i = 0; i < this.channels.length; ++i) {
+        await this.socket.emit("JoinChan", {
+          channel_id: this.channels[i].id,
+          password: "",
+        });
+      }
+    },
+
+    async joinChannel() {
+      if (this.choice == "") return;
+      this.socket.emit(
+        "JoinChan",
+        {
+          channel_id: this.choice,
+          password: this.password,
+        },
+        (rep: any) => {
+          if (rep == null) this.passwordDialog = true;
+        }
+      );
+      this.password = "";
+      this.joinChannelDialog = false;
+    },
+
+    async leaveChannel(channel: Channel) {
+      if (channel.scope == "dm") return;
+      if (channel.id == undefined) return;
+      this.socket.emit("LeaveChan", {
+        channel_id: channel.id,
+      });
+    },
+
+    async deleteChannel(channel: Channel) {
+      if (channel.scope == "dm") return;
+      if (channel.id == undefined) return;
+      this.socket.emit("DeleteChan", {
+        channel_id: channel.id,
+      });
+    },
+
+    async createDMChannel() {
+      await this.socket.emit("NewDMChannel", this.choice);
+    },
+
+    async kick(user: User, channel: Channel) {
+      this.socket.emit("Kick", {
+        user_id: user.id,
+        channel_id: channel.id,
+      });
+    },
+
+    async ban() {
+      this.socket.emit("Ban", {
+        user_id: this.banMute_player.id,
+        channel_id: this.banMute_chan.id,
+        duration: this.banMinutes,
+      });
+    },
+
+    async mute() {
+      this.socket.emit("Mute", {
+        user_id: this.banMute_player.id,
+        channel_id: this.banMute_chan.id,
+        duration: this.muteMinutes,
+      });
+    },
+
+    async setAdmin(user: User, channel: Channel) {
+      this.socket.emit("SetAdmin", {
+        channel_id: channel.id,
+        user_id: user.id,
+      });
+    },
+
+    async deleteMessage(msg: Message) {
+      this.socket.emit("DeleteMessage", msg);
+    },
+
+    async sendMessage() {
+      if (this.input.length == 0) return;
+      if (this.currentChannel.id == undefined) return;
+
+      await this.socket.emit("NewMessage", {
+        channel: { id: this.currentChannel.id },
+        content: this.input,
+      });
+
+      this.input = "";
+    },
+
+    async isPublic(channel: Channel) {
+      if (channel.scope === "public") return;
+      return false;
+    },
+
+    isAdmin(channel: Channel) {
+      if (channel.id == undefined) return false;
+      for (let i = 0; i < channel.admins.length; ++i) {
+        if (this.user.id === channel.admins[i].id) return true;
+      }
+      return false;
+    },
+
+    isOwner(channel: Channel) {
+      if (
+        channel.id == undefined ||
+        channel.owner == undefined ||
+        channel.owner == null
+      )
+        return false;
+      if (this.user.id === channel.owner.id) return true;
+      return false;
+    },
+
+    async isProtectedChannel(choice: string) {
+      for (let i = 0; i < this.allChannels.length; i++) {
+        if (parseInt(choice) === this.allChannels[i].id) {
+          if (this.allChannels[i].scope === "protected") return true;
+        }
+      }
+      return false;
+    },
+
+    getDMUser(channel: Channel): User {
+      let user = channel.users.find((e) => {
+        return e.id != this.user.id;
+      });
+      return user as User;
+    },
+
+    getUserProfile(channel: Channel): string {
+      let user = this.getDMUser(channel);
+      if (user == undefined) return "error";
+      return "/profile/" + this.getDMUser(channel)?.id;
+    },
+
+    getDMUserName(channel: Channel): string {
+      let name = channel.users.find((e) => {
+        return e.id != this.user.id;
+      })?.username;
+      if (name == undefined) name = "unknown";
+      return name;
+    },
+
+    async options() {
+      if (this.currentChannel == undefined) return;
+      if (this.currentChannel.scope == "private") {
+        this.socket.emit("Invite", {
+          target_id: this.invited_user.id,
+          channel_id: this.currentChannel.id,
+        });
+      } else if (this.currentChannel.scope == "protected") {
+        await this.$axios
+          .post("/channels/" + this.currentChannel.id + "/update/password", {
+            channel_id: this.currentChannel.id,
+            password_old: this.currentPassword,
+            password_new: this.changePassword,
+          })
+          .then((res:any) => {
+            this.socket.emit("Alert", res.data);
+          })
+          .catch((error:any) => {
+            console.error(error);
+          });
+      }
+    },
+    challenge(target: User) {
+      this.$axios
+        .post("/gameroom/create", {
+          difficulty: 2,
+          points: 5,
+        })
+        .then((res:any) => {
+          let channel = this.channels_dm.find((e) => {
+            return this.getDMUser(e)?.id == target.id;
+          });
+          this.socket.emit("NewMessage", {
+            channel: channel,
+            content: res.data,
+            user: this.user,
+            challenge: true,
+          });
+        })
+        .catch((error:any) => {});
+    },
+    toChallenge(id: string) {
+      this.$router.push({ path: "/groom/room", query: { name: id } });
+    },
+  },
+  components: {},
+});
+</script>
+
+<style scoped>
+.v-list {
+  overflow-y: auto;
+}
+
+.v-window {
+  background-color: rgb(81, 45, 168) !important;
+}
+</style>
